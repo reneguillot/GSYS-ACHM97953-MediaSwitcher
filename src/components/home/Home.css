@@ -1,0 +1,14 @@
+h1 {
+    margin: 16px;
+}
+.container {
+    margin-top: 15px;
+}
+.toggle-area {
+    width: 50%;
+    margin: 16px;
+}
+.queue-status {
+    width: 60%;
+    margin: 16px;
+}

@@ -1,0 +1,99 @@
+version: 0.0.{build}
+
+clone_folder: ~/projects
+
+image: Ubuntu
+
+skip_tags: true
+
+environment:
+  REGIONS: us-east-1 eu-central-1 # Add your AWS regions here - example: REGIONS: us-east-1 eu-central-1 ap-southeast-2
+  TEMPLATE_REVISION: 1.2
+  REACT_APP_SOLUTION: $solution # References the solution name set in the appveyor project environment context by Repository Creator. 
+  # !! Must set the solution name in start script of package.json.
+  DEVOPS_ACCESS_KEY_ID:
+    secure: 7c+9BuHwAcm5rUsFL5oJ3EQPEek3UcC8LYJS6U7nn8E=
+  DEVOPS_SECRET_ACCESS_KEY:
+    secure: jrgosu0cZzeNJ2ws06CSsBUpi4d6L/VQtZGCx3ED4H8rIZjH5QtgglqmG8rYf1yF
+  SNYK_TOKEN:
+    secure: cdXI1nahFg+0TSv5iJ20IS/8zeD4CjAsXAi6wCovcsBDvtAhQMBIUpvHceFUtBDe
+
+install:
+  - sh: |
+      nvm use 16
+      npm install
+      npm install -g serverless snyk
+      source ~/venv3.10/bin/activate
+      pip install colorama pyyaml cfn_flip
+
+before_test:
+  - sh: |
+      AWS_ACCESS_KEY_ID=${DEVOPS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${DEVOPS_SECRET_ACCESS_KEY} aws s3 cp s3://infrastructure-840439777155/scripts/code_review ~/code_review
+      AWS_ACCESS_KEY_ID=${DEVOPS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${DEVOPS_SECRET_ACCESS_KEY} aws s3 cp s3://infrastructure-840439777155/scripts/cr_conf.yml ~/cr_conf.yml
+      AWS_ACCESS_KEY_ID=${DEVOPS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${DEVOPS_SECRET_ACCESS_KEY} aws s3 cp s3://infrastructure-840439777155/scripts/snyk.sh ~/snyk.sh
+
+test_script:
+  - sh: cd ~/projects
+  - sh: python ~/code_review --stage "${APPVEYOR_REPO_BRANCH}" --team "$team" --project "${APPVEYOR_REPO_NAME}" #code review
+  - sh: deactivate
+  - sh: source ~/snyk.sh # dependencies & code vulnerabilities check
+
+build_script:
+  - sh: npm run-script build
+
+deploy_script:
+  - sh: |
+      cd ~/projects
+      read -a regions <<< "$REGIONS"
+      for region in ${regions[@]};
+      do
+        echo "Region $region"
+        if [[ $APPVEYOR_REPO_BRANCH == "master" ]]; then
+          echo "Deploying to Production environment"
+          serverless deploy --stage prod --region $region
+        elif [[ $APPVEYOR_REPO_BRANCH == "develop" ]]; then
+          echo "Deploying to Development environment - Test stage"
+          serverless deploy --stage test --region $region
+        elif [[ $APPVEYOR_REPO_BRANCH =~ ^(^|[^[:alnum:]_])dev([^[:alnum:]_]|$).*$ ]]; then
+          echo "Deploying to Development environment - Dev stage"
+          serverless deploy --stage dev --region $region
+        elif [[ $APPVEYOR_REPO_BRANCH =~ ^(^|[^[:alnum:]_])sandbox([^[:alnum:]_]|$).*$ ]]; then
+          echo "Deploying to Sandbox environment"
+          serverless deploy --stage sandbox --region $region
+        else
+          echo "no branch match in deploy script"
+        fi
+      done
+
+# Each team owns 3 different AWS accounts - PROD DEVELOPMENT SANDBOX
+for:
+  - branches: #PRODUCTION ENVIRONMENT (prod stage)
+      only:
+        - master
+    environment:
+      AWS_ACCESS_KEY_ID:
+        secure: UOIFfxF/oLZGWHN93o63DkwcllxcVdG6r8WDmrExRVo=
+      AWS_SECRET_ACCESS_KEY:
+        secure: Io2w1m338EH972f9Md/Zqw/6INYwBBSPjbAa2JF4cokMoDdkPjMpW25EQOXkM5WE
+      REACT_APP_CUSTOM_ENV: production
+
+  - branches: #DEVELOPMENT ENVIRONMENT (dev & test stages)
+      only:
+        - develop #Ready for QA testing
+        - /dev/ #regex matching all branches starting with dev/
+    environment:
+      AWS_ACCESS_KEY_ID:
+        secure: JXHamA1YNMwAvHQGZOcGgH8O7/80AyjvtfUTXbQNSO0=
+      AWS_SECRET_ACCESS_KEY:
+        secure: MQDf6ereYssy6TDfIe6R30oawrabvHHgHH5UljYMT+5tB3IC62KRlMjlTz/qDzUi
+      REACT_APP_CUSTOM_ENV: development
+
+  - branches: #SANDBOX/DEMO/POC ENVIRONMENT (sandbox stage)
+      only:
+        - /sandbox/ #regex matching all branches starting with sandbox/
+    environment:
+      AWS_ACCESS_KEY_ID:
+        secure: JXHamA1YNMwAvHQGZOcGgH8O7/80AyjvtfUTXbQNSO0=
+      AWS_SECRET_ACCESS_KEY:
+        secure: MQDf6ereYssy6TDfIe6R30oawrabvHHgHH5UljYMT+5tB3IC62KRlMjlTz/qDzUi
+      REACT_APP_CUSTOM_ENV: sandbox

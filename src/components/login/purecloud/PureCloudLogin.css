@@ -1,0 +1,33 @@
+.purecloud-login-svg {
+    width: 35%;
+    height: auto;
+    display: block;
+    margin: auto;
+}
+
+.purecloud-login-input-group {
+    width: 35%;
+    margin: auto;
+}
+
+.purecloud-login-form-control {
+    border: 1px solid #4e5054;
+    border-top-left-radius: .25rem !important;
+    border-bottom-left-radius: .25rem !important;
+}
+
+.purecloud-login-vert-center {
+    position: relative;
+    top: 50%;
+    transform: perspective(1px) translateY(-50%);
+    margin-top:-2rem !important;
+}
+
+.purecloud-login-container {
+    background-color: #d3d3d4;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}

@@ -1,0 +1,118 @@
+# https://www.serverless.com/framework/docs/providers/aws/guide/serverless.yml
+# https://extranet.genesys.com/display/PS/Deployment+Procedures+and+Practices
+
+#service: ${self:provider.stackTags.Solution} # use this service declaration if it is a multi-tenant solution
+service: ${self:provider.stackTags.Customer}-${self:provider.stackTags.Solution}
+
+plugins:
+  - serverless-s3-sync
+  - serverless-cloudfront-invalidate # add as the last plugin
+
+custom:
+  # Bucket name MAX 63 characters, change below if it exceeds the limit, but be aware your bucket needs to be unique globally through all AWS organizations!
+  bucketName: ${self:service}-${aws:accountId}-${self:provider.region}-${self:provider.stage}
+  s3Sync: # serverless-s3-sync
+    - bucketName: ${self:custom.bucketName}
+      localDir: build/
+  cloudFrontOAI: # CloudFront OAI created for S3 buckets
+    dev: ${env:developmentCloudFrontOAI}
+    test: ${env:developmentCloudFrontOAI}
+    sandbox: ${env:sandboxCloudFrontOAI}
+    prod: ${env:productionCloudFrontOAI}
+  cloudfrontInvalidate: # serverless-cloudfront-invalidate plugin
+    - distributionIdKey: "CloudFrontDistributionId" #logical name of the CloudFront resource output
+      autoInvalidate: true
+      items:
+        - "/*"
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  memorySize: 128
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'eu-central-1'}
+  stackTags:
+    Customer: ${env:customer} #remove if multi-tenant solution
+    SOW: ${env:genesysProjectId} #remove if no PureProject SOW
+    Platform: ${env:platform}
+    Solution: ${env:solution}
+    Team: ${env:team}
+    Stage: ${self:provider.stage}
+  deploymentBucket:
+    name: deployments-${aws:accountId}-${self:provider.region}
+    blockPublicAccess: true
+  environment:
+    NODE_ENV: ${opt:stage, self:provider.stage}
+    REGION: ${opt:region, self:provider.region}
+    AWS_ACCOUNT_ID: ${aws:accountId}
+    SOLUTION: ${self:provider.stackTags.Solution} # This env variable is used by the subscription check
+    PAGER_DUTY_DEVELOPMENT_INCIDENT_CREATION: "off" # We should not create PagerDuty incidents in anything but Production, switch to 'on' if needed temporarily
+
+resources:
+  Resources:
+    Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketName}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+
+    # Bucket Policy to provide read only access to CloudFront
+    BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref Bucket
+        PolicyDocument:
+          Id: BucketPolicy
+          Version: "2012-10-17"
+          Statement:
+            - Sid: PublicReadForGetBucketObjects
+              Effect: Allow
+              Principal:
+                AWS:
+                  - arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${self:custom.cloudFrontOAI.${self:provider.stage}}
+              Action: "s3:GetObject"
+              Resource: !Join ["", ["arn:aws:s3:::", !Ref Bucket, /*]]
+
+    # CloudFront Distribution for the bucket
+    CloudFront:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Comment: ${self:service}-${self:provider.region}-${self:provider.stage}
+          Origins:
+            - DomainName: ${self:custom.bucketName}.s3.amazonaws.com
+              Id: S3-${self:custom.bucketName}
+              # Need to set S3OriginConfig for an S3 bucket without static web site hosting
+              S3OriginConfig:
+                OriginAccessIdentity: origin-access-identity/cloudfront/${self:custom.cloudFrontOAI.${self:provider.stage}}
+          Enabled: true
+          DefaultRootObject: index.html
+          CustomErrorResponses:
+            - ErrorCode: 403
+              ResponseCode: 200
+              ResponsePagePath: /index.html
+            - ErrorCode: 404
+              ResponseCode: 200
+              ResponsePagePath: /index.html
+          DefaultCacheBehavior:
+            Compress: true
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            TargetOriginId: S3-${self:custom.bucketName}
+            # Policy Id for 'Managed-CachingOptimized' - change if needed
+            # https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            ViewerProtocolPolicy: redirect-to-https
+          ViewerCertificate:
+            CloudFrontDefaultCertificate: true
+  Outputs:
+    CloudFrontDistributionId:
+      Description: CloudFront Distribution Id
+      Value:
+        Ref: CloudFront

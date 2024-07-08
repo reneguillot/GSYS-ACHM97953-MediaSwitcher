@@ -1,0 +1,71 @@
+{
+  "name": "gcx-media-switcher",
+  "version": "1.0.1",
+  "homepage": "/GSYS-ACHM97953-AgentMediaSwitcher/",
+  "private": true,
+  "genesys_custom_software": {
+    "builddate": "2024-JUL-08"
+  },
+  "engines": {
+    "node": ">=16.x"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^1.9.5",
+    "bootstrap": "^5.2.0",
+    "genesys-spark-components": "^3.98.0",
+    "genesys-spark-components-react": "^3.98.0",
+    "gh-pages": "^6.0.0",
+    "moment": "^2.29.4",
+    "purecloud-platform-client-v2": "^173.1.0",
+    "react": "^18.2.0",
+    "react-bootstrap": "^2.5.0",
+    "react-dom": "^18.2.0",
+    "react-redux": "^8.1.1",
+    "react-router": "^6.3.0",
+    "react-router-dom": "^6.3.0",
+    "react-scripts": "^5.0.1",
+    "react-svg": "^15.0.1",
+    "reactstrap": "^9.1.4",
+    "web-vitals": "^3.0.1"
+  },
+  "devDependencies": {
+    "@svgr/webpack": "^6.3.1",
+    "customize-cra": "^1.0.0",
+    "minimatch": "^3.0.5",
+    "nwsapi": "2.2.2",
+    "react-app-rewired": "^2.2.1",
+    "serverless-cloudfront-invalidate": "^1.12.2",
+    "serverless-s3-sync": "^3.0.0"
+  },
+  "overrides": {
+    "@svgr/webpack": "$@svgr/webpack",
+    "minimatch": "$minimatch",
+    "nwsapi": "$nwsapi"
+  },
+  "scripts": {
+    "start": "SET REACT_APP_CUSTOM_ENV=development && SET REACT_APP_SOLUTION=agent-media-switcher-ui && SET REACT_APP_VERSION=1.0.0 && react-app-rewired start",
+    "deploy": "gh-pages -t -f -d build",
+    "build": "react-app-rewired build",
+    "test": "react-app-rewired test --env=jsdom",
+    "eject": "react-app-rewired eject"
+  },
+  "browser": {
+    "crypto": false,
+    "fs": false,
+    "os": false,
+    "path": false
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "packageManager": "yarn@3.6.1"
+}
