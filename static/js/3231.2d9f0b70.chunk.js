@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkgcx_media_switcher=self.webpackChunkgcx_media_switcher||[]).push([[3231],{3231:function(e,c,r){r.r(c);r(2791);var t=r(7689),i=r(1389),u=r(184);c.default=function(e){(0,t.TH)();return(0,u.jsx)(i.TK,{accent:"error",children:"Not authorized to use Media Switcher"})}}}]);
+//# sourceMappingURL=3231.2d9f0b70.chunk.js.map
